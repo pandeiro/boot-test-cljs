@@ -1,4 +1,4 @@
-(ns app)
+(ns app.main)
 
 (enable-console-print!)
 

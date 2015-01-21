@@ -48,14 +48,27 @@ files are used in compilation.
 To reproduce:
 
 ```
-boot test-cljs -n app-tests
+boot test-cljs -n app.tests
 ```
 
-Modify tests in `example/test/app_tests.cljs`.
+Modify tests in `example/test/app/tests.cljs`.
 
 ```
-boot test-cljs -n app-tests
+boot test-cljs -n app.tests
 ```
+
+#### Removing target fixes issue; compare:
+
+```
+rm -rf target/* && boot test-cljs -n
+```
+
+Modify tests...
+
+```
+rm -rf target/* && boot test-cljs -n
+```
+
 
 ### 2. Transfer the testing to a pod
 

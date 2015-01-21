@@ -5,6 +5,7 @@
             [clojure.edn :as edn]
             [boot.core :as core :refer [deftask]]
             [boot.util :as util]
+            [boot.file :as file]
             [adzerk.boot-cljs :refer [cljs]]
             [pandeiro.boot-http :refer [serve]])
   (:import [java.net ServerSocket]
@@ -72,23 +73,39 @@
 (defn silence-htmlunit! []
   (.setLevel (Logger/getLogger "com.gargoylesoftware.htmlunit") Level/OFF))
 
+(require 'clojure.set)
+
+(defn debug-file [files exts]
+  (doseq [at (core/by-ext exts files)]
+    (println (:path at))
+    (println (slurp (str (:dir at) "/" (:path at))))
+    (println)
+    (println)))
+
+(defn- debug-fileset [fileset]
+  (let [files (core/by-ext #{".cljs" ".cljs.edn" ".js"}
+                           (clojure.set/union (core/input-files fileset)
+                                              (core/output-files fileset)))]
+    (println (count files) "files:" (map :path files))
+    (debug-file files #{"app_tests.cljs" "app_tests.js"})))
+
 (deftask test-cljs
   "Test one or more ClojureScript namespaces by compiling them and checking that
   their tests run without producing any exceptions."
   [n namespaces NAMESPACE #{sym} "Namespaces whose tests will be run."]
-  (let [rsc-dir          (atom nil)
-        src-dir          (atom nil)
-        basename         (atom "")
-        req-ns           (conj namespaces 'pandeiro.test-cljs.runner)
-        http-port        (free-port)]
+  (let [rsc-dir   (core/temp-dir!)
+        src-dir   (core/temp-dir!)
+        basename  (atom "")
+        req-ns    (conj namespaces 'pandeiro.test-cljs.runner)
+        http-port (free-port)]
     (comp
      (core/with-pre-wrap fileset
-       (reset! rsc-dir (core/temp-dir!))
-       (reset! src-dir (core/temp-dir!))
+       ;;(debug-fileset fileset)
+       (file/empty-dir! rsc-dir src-dir)
        (reset! basename (str "boot_test_cljs_" (random-str)))
-       (let [cljs-main  (io/file @rsc-dir (str @basename ".cljs.edn"))
-             html-page  (io/file @rsc-dir (str @basename ".html"))
-             test-cljs-ns-dir (doto (io/file @src-dir "pandeiro/test_cljs")
+       (let [cljs-main  (io/file rsc-dir (str @basename ".cljs.edn"))
+             html-page  (io/file rsc-dir (str @basename ".html"))
+             test-cljs-ns-dir (doto (io/file src-dir "pandeiro/test_cljs")
                                 (.mkdirs))
              cljs-test-runner (io/file test-cljs-ns-dir "runner.cljs")]
          (spit cljs-test-runner (test-cljs-runner-ns-src namespaces))
@@ -99,24 +116,30 @@
                core/input-files
                (core/by-ext [".cljs.edn"])
                (core/rm fileset))
-           (core/add-source @src-dir)
-           (core/add-resource @rsc-dir)
+           (core/add-source src-dir)
+           (core/add-resource rsc-dir)
            (core/commit!))))
      (do
        ;;(swap! util/*verbosity* + (* -1 @util/*verbosity*)) ; turn off cljs output
        (cljs :optimizations :none, :source-map true))
      (do
        ;;(swap! util/*verbosity* + (* -1 @util/*verbosity*)) ; turn output back on
-       (serve :dir "target" :port http-port :silent true))
+       (serve :dir "target" :port http-port))
      (core/with-pre-wrap fileset
        (silence-htmlunit!)
-       (let [test-page-url (format "http://localhost:%d/%s.html" http-port @basename)]
+       ;;(debug-fileset fileset)
+       (let [test-page-url (format "http://localhost:%d/%s.html" http-port @basename)
+             wc (web-client)]
+         (util/info "<< HtmlUnit connecting to %s... >>" test-page-url)
          (try
-           (.getPage (web-client) test-page-url)
+           (.getPage wc test-page-url)
            (catch Exception e
              (let [{:keys [message summary]} (extract-test-summary e)]
                (println message)
                (when (> (apply + (map summary [:fail :error])) 0)
-                 (throw (ex-info "Some tests failed or errored" summary)))))))
+                 (throw (ex-info "Some tests failed or errored" summary)))))
+           (finally
+             (util/info "<< Closing all HtmlUnit webclients... >>")
+             (.closeAllWindows wc))))
        fileset))))
 

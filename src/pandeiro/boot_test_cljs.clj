@@ -66,6 +66,9 @@
     first second
     edn/read-string))
 
+(defn random-str []
+  (apply str (repeatedly 10 #(first (shuffle (range 10))))))
+
 (defn silence-htmlunit! []
   (.setLevel (Logger/getLogger "com.gargoylesoftware.htmlunit") Level/OFF))
 
@@ -73,29 +76,32 @@
   "Test one or more ClojureScript namespaces by compiling them and checking that
   their tests run without producing any exceptions."
   [n namespaces NAMESPACE #{sym} "Namespaces whose tests will be run."]
-  (let [rsc-dir          (core/temp-dir!)
-        src-dir          (core/temp-dir!)
+  (let [rsc-dir          (atom nil)
+        src-dir          (atom nil)
+        basename         (atom "")
         req-ns           (conj namespaces 'pandeiro.test-cljs.runner)
-        basename         (str "test_cljs_" (gensym))
-        test-cljs-ns-dir (doto (io/file src-dir "pandeiro/test_cljs")
-                           (.mkdirs))
-        cljs-test-runner (io/file test-cljs-ns-dir "runner.cljs")
-        cljs-main        (io/file rsc-dir (str basename ".cljs.edn"))
-        html-page        (io/file rsc-dir (str basename ".html"))
         http-port        (free-port)]
     (comp
      (core/with-pre-wrap fileset
-       (spit cljs-test-runner (test-cljs-runner-ns-src namespaces))
-       (spit cljs-main (pr-str {:require  namespaces
-                                :init-fns ['pandeiro.test-cljs.runner/run]}))
-       (spit html-page (test-cljs-html-page basename))
-       (-> (->> fileset
-             core/input-files
-             (core/by-ext [".cljs.edn"])
-             (core/rm fileset))
-         (core/add-source src-dir)
-         (core/add-resource rsc-dir)
-         (core/commit!)))
+       (reset! rsc-dir (core/temp-dir!))
+       (reset! src-dir (core/temp-dir!))
+       (reset! basename (str "boot_test_cljs_" (random-str)))
+       (let [cljs-main  (io/file @rsc-dir (str @basename ".cljs.edn"))
+             html-page  (io/file @rsc-dir (str @basename ".html"))
+             test-cljs-ns-dir (doto (io/file @src-dir "pandeiro/test_cljs")
+                                (.mkdirs))
+             cljs-test-runner (io/file test-cljs-ns-dir "runner.cljs")]
+         (spit cljs-test-runner (test-cljs-runner-ns-src namespaces))
+         (spit cljs-main (pr-str {:require  namespaces
+                                  :init-fns ['pandeiro.test-cljs.runner/run]}))
+         (spit html-page (test-cljs-html-page @basename))
+         (-> (->> fileset
+               core/input-files
+               (core/by-ext [".cljs.edn"])
+               (core/rm fileset))
+           (core/add-source @src-dir)
+           (core/add-resource @rsc-dir)
+           (core/commit!))))
      (do
        ;;(swap! util/*verbosity* + (* -1 @util/*verbosity*)) ; turn off cljs output
        (cljs :optimizations :none, :source-map true))
@@ -104,7 +110,7 @@
        (serve :dir "target" :port http-port :silent true))
      (core/with-pre-wrap fileset
        (silence-htmlunit!)
-       (let [test-page-url (format "http://localhost:%d/%s.html" http-port basename)]
+       (let [test-page-url (format "http://localhost:%d/%s.html" http-port @basename)]
          (try
            (.getPage (web-client) test-page-url)
            (catch Exception e

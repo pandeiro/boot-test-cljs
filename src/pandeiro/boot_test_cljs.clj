@@ -66,14 +66,6 @@
     first second
     edn/read-string))
 
-;;java.util.logging.Logger.getLogger("com.gargoylesoftware.htmlunit").setLevel(Lev‌​el.OFF)
-;;System.getProperties().put("org.apache.commons.logging.simplelog.defaultlog", "trace");
-
-;; (import '[java.util.logging Logger Level])
-
-;; (.put (System/getProperties) "org.apache.commons.logging.simplelog.defaultlog" "info")
-;; (.setLevel (Logger/getLogger "com.gargoylesoftware.htmlunit") Level/INFO)
-
 (defn silence-htmlunit! []
   (.setLevel (Logger/getLogger "com.gargoylesoftware.htmlunit") Level/OFF))
 

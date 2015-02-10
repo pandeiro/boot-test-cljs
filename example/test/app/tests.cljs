@@ -1,5 +1,6 @@
 (ns app.tests
-  (:require [cljs.test :refer-macros [deftest testing is]]))
+  (:require [cljs.test :refer-macros [deftest testing is]]
+            [app.main :as app]))
 
 (deftest should-pass
   (testing "equality"

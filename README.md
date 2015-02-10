@@ -6,8 +6,8 @@
 
 Not yet published. Clone this repository and do `boot build-jar`.
 
-Then, include `pandeiro/boot-test-cljs` in any Boot project (or the
-example directory, included in the repo):
+Then, either include `pandeiro/boot-test-cljs` in any Boot project (or
+use the example directory, included in the repo):
 
 ```
 boot test-cljs -n app.tests # replace app.tests w/ your tests ns

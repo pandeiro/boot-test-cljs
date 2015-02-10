@@ -1,13 +1,11 @@
 (set-env!
  :source-paths   #{"src"}
- :dependencies   '[[adzerk/boot-cljs                  "0.0-2760-0" :scope "test"]
-                   [pandeiro/boot-http                "0.6.2"      :scope "test"]
-                   [adzerk/bootlaces                  "0.1.10"     :scope "test"]
-                   [net.sourceforge.htmlunit/htmlunit "2.15"       :scope "test"]])
+ :dependencies   '[[adzerk/boot-cljs                  "0.0-2760-0" :scope "compile"]
+                   [pandeiro/boot-http                "0.6.2"      :scope "compile"]
+                   [net.sourceforge.htmlunit/htmlunit "2.15"       :scope "compile"]
+                   [adzerk/bootlaces                  "0.1.10"     :scope "test"]])
 
-(require
- '[adzerk.bootlaces :refer [bootlaces!]]
- '[pandeiro.boot-test-cljs :refer [test-cljs]])
+(require '[adzerk.bootlaces :refer :all])
 
 (def +version+ "0.1.0-SNAPSHOT")
 

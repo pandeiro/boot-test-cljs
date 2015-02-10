@@ -3,9 +3,12 @@
             [app.main :as app]))
 
 (deftest should-pass
-  (testing "equality"
-    (is (= 2 2))))
+  (testing "addition"
+    (is (= (app/add 2 2) 4)))
+  (testing "concatenation"
+    (is (= (app/add "wat" "wat") "watwat"))))
 
 (deftest should-fail
-  (testing "equality"
-    (is (= 2 3))))
+  (testing "nonsense"
+    (is (zero? :zero))))
+

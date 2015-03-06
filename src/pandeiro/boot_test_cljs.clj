@@ -39,7 +39,8 @@
 (set! *print-fn* capture-tests)
 
 (defn run []
-  (let [summary (cljs.test/run-tests (cljs.test/empty-env) %s)]
+  (let [_ (cljs.test/run-tests (cljs.test/empty-env) %s)
+        summary (:report-counters cljs.test/*current-env*)]
     ;; We throw here no matter what in order to export the test summary
     ;; and output back into Clojure via HtmlUnit
     (throw (js/Error. (pr-str {:summary summary
@@ -112,8 +113,11 @@
         (catch Exception e
           (let [{:keys [message summary inner]} (extract-test-summary e)]
             (util/info (str message "\n\n"))
-            (when (> (apply + (map summary [:fail :error])) 0)
-              (throw (ex-info "Some tests failed or errored" summary)))))
+            (if (> (apply + (map #(get summary % 0) [:fail :error])) 0)
+              (throw (ex-info "Some tests failed or errored" summary))
+              (do
+                (util/info "Tests all passing\n\n")
+                (util/info (str (pr-str summary) "\n\n"))))))
         (finally
           (util/info "<< Closing all HtmlUnit webclients... >>\n")
           (.closeAllWindows wc))))

@@ -29,22 +29,15 @@
   (:require
    %s
    [clojure.string :as s]
+   [pandeiro.reporter :as reporter]
    [cljs.test :include-macros true]))
 
-(def test-output (atom []))
-
-(defn capture-tests [x]
-   (swap! test-output conj x))
-
-(set! *print-fn* capture-tests)
+(set! *print-fn* reporter/capture-tests)
 
 (defn run []
-  (let [_ (cljs.test/run-tests (cljs.test/empty-env) %s)
-        summary (:report-counters cljs.test/*current-env*)]
-    ;; We throw here no matter what in order to export the test summary
-    ;; and output back into Clojure via HtmlUnit
-    (throw (js/Error. (pr-str {:summary summary
-                               :message (s/join \"\n\" @test-output)})))))"
+  (cljs.test/run-tests (assoc (cljs.test/empty-env)
+                              :reporter reporter/label)
+                       %s))"
      required-ns
      quoted-ns)))
 
@@ -109,12 +102,13 @@
           wc  (web-client)]
       (util/info "<< HtmlUnit connecting to %s... >>\n" url)
       (try
+        (.waitForBackgroundJavaScript wc 60000)
         (.getPage wc url)
         (catch Exception e
           (let [{:keys [message summary inner]} (extract-test-summary e)]
             (util/info (str message "\n\n"))
-            (if (> (apply + (map #(get summary % 0) [:fail :error])) 0)
-              (throw (ex-info "Some tests failed or errored" summary))
+            (if (> (apply + (map #(get summary % 1) [:fail :error])) 0)
+              (throw (ex-info "Some tests failed or errored" (or summary {})))
               (do
                 (util/info "Tests all passing\n\n")
                 (util/info (str (pr-str summary) "\n\n"))))))
@@ -138,4 +132,3 @@
                :silent        true)
      (execute  :basename      basename
                :port          http-port))))
-

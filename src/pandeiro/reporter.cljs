@@ -47,9 +47,12 @@
 (defmethod report [::basic :summary] [m]
   ;; regular behaviour
   (println "\nRan" (:test m) "tests containing"
-    (+ (:pass m) (:fail m) (:error m)) "assertions.")
+           (+ (:pass m) (:fail m) (:error m)) "assertions.")
   (println (:fail m) "failures," (:error m) "errors.")
   ;; We throw here no matter what in order to export the test summary
-  ;; and output back into Clojure via HtmlUnit
-  (throw (js/Error. (pr-str {:summary m
-                             :message (s/join "\n" @test-output)}))))
+  ;; and output back into Clojure via HtmlUnit.
+  ;; Thrown within timeout to escape Firebase callback exception handler
+  (js/setTimeout #(throw
+                   (js/Error. (pr-str {:summary m
+                                       :message (s/join "\n" @test-output)})))
+                 0))

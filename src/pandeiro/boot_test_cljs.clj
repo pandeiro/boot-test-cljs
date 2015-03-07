@@ -9,7 +9,7 @@
             [adzerk.boot-cljs :refer [cljs]]
             [pandeiro.boot-http :refer [serve]])
   (:import [java.net ServerSocket]
-           [com.gargoylesoftware.htmlunit WebClient BrowserVersion]
+           [com.gargoylesoftware.htmlunit WebClient BrowserVersion AjaxController]
            [com.gargoylesoftware.htmlunit.html HtmlPage]
            [java.util.logging Logger Level]))
 
@@ -102,8 +102,10 @@
           wc  (web-client)]
       (util/info "<< HtmlUnit connecting to %s... >>\n" url)
       (try
-        (.waitForBackgroundJavaScript wc 60000)
+        (.setAjaxController wc (proxy [AjaxController] []
+                                 (processSynchron [_, _, _] true)))
         (.getPage wc url)
+        (.waitForBackgroundJavaScript wc 60000)
         (catch Exception e
           (let [{:keys [message summary inner]} (extract-test-summary e)]
             (util/info (str message "\n\n"))

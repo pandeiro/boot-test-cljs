@@ -9,7 +9,7 @@
             [adzerk.boot-cljs :refer [cljs]]
             [pandeiro.boot-http :refer [serve]])
   (:import [java.net ServerSocket]
-           [com.gargoylesoftware.htmlunit WebClient BrowserVersion]
+           [com.gargoylesoftware.htmlunit WebClient BrowserVersion AjaxController]
            [com.gargoylesoftware.htmlunit.html HtmlPage]
            [java.util.logging Logger Level]))
 
@@ -29,21 +29,15 @@
   (:require
    %s
    [clojure.string :as s]
+   [pandeiro.reporter :as reporter]
    [cljs.test :include-macros true]))
 
-(def test-output (atom []))
-
-(defn capture-tests [x]
-   (swap! test-output conj x))
-
-(set! *print-fn* capture-tests)
+(set! *print-fn* reporter/capture-tests)
 
 (defn run []
-  (let [summary (cljs.test/run-tests (cljs.test/empty-env) %s)]
-    ;; We throw here no matter what in order to export the test summary
-    ;; and output back into Clojure via HtmlUnit
-    (throw (js/Error. (pr-str {:summary summary
-                               :message (s/join \"\n\" @test-output)})))))"
+  (cljs.test/run-tests (assoc (cljs.test/empty-env)
+                              :reporter reporter/label)
+                       %s))"
      required-ns
      quoted-ns)))
 
@@ -108,12 +102,18 @@
           wc  (web-client)]
       (util/info "<< HtmlUnit connecting to %s... >>\n" url)
       (try
+        (.setAjaxController wc (proxy [AjaxController] []
+                                 (processSynchron [_, _, _] true)))
         (.getPage wc url)
+        (.waitForBackgroundJavaScript wc 60000)
         (catch Exception e
           (let [{:keys [message summary inner]} (extract-test-summary e)]
             (util/info (str message "\n\n"))
-            (when (> (apply + (map summary [:fail :error])) 0)
-              (throw (ex-info "Some tests failed or errored" summary)))))
+            (if (> (apply + (map #(get summary % 1) [:fail :error])) 0)
+              (throw (ex-info "Some tests failed or errored" (or summary {})))
+              (do
+                (util/info "Tests all passing\n\n")
+                (util/info (str (pr-str summary) "\n\n"))))))
         (finally
           (util/info "<< Closing all HtmlUnit webclients... >>\n")
           (.closeAllWindows wc))))
@@ -134,4 +134,3 @@
                :silent        true)
      (execute  :basename      basename
                :port          http-port))))
-
